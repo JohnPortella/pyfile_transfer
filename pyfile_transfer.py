@@ -54,9 +54,13 @@ class PyFileTransfer(object):
     def connection(self):
         if self.__typeProtocol == 'ftp':
             self.__t.login(self.__username, self.__password)
+            #default directory
+            self.__defaultDirectory = self.__t.pwd()
         elif self.__typeProtocol == 'sftp':
             self.__ssh.connect(username = self.__username, password = self.__password)            
             self.__t = paramiko.SFTPClient.from_transport(self.__ssh)
+            #default directory
+            self.__defaultDirectory = None
             
     '''
     def __init__(self, typeProtocol='ftp', hostname = 'localhost', so='unix', port = None, timeout = None):
@@ -80,22 +84,24 @@ class PyFileTransfer(object):
                 self.__port = 21             
             #open
             self.__t = FTP()
-            self.__t.connect(self.__hostname, self.__port, self.__timeout)         
-            
+            self.__t.connect(self.__hostname, self.__port, self.__timeout)                                 
         elif self.__typeProtocol == 'sftp':    
             if not port:
                 self.__port = 22
             #open
             self.__ssh = paramiko.Transport((self.__hostname, self.__port))
-            #self.__t.set
-                                                    
+                                                                
     def connection(self, username, password):
         if self.__typeProtocol == 'ftp':
             self.__t.login(username, password)
+            #default directory
+            self.__defaultDirectory = self.__t.pwd()
         elif self.__typeProtocol == 'sftp':
             self.__ssh.connect(username = username, password = password)            
             self.__t = paramiko.SFTPClient.from_transport(self.__ssh)                                        
             self.__t.sock.settimeout(self.__timeout)
+            #default directory
+            self.__defaultDirectory = None
     
     def get(self,  filename, remoteDirectory=None, localDirectory=None):
         if localDirectory is None:
@@ -140,23 +146,44 @@ class PyFileTransfer(object):
             self.__t.close()
             self.__ssh.close()
           
-    def remotePathJoin (self, *paths):        
+    def pwd(self):
+        if self.__typeProtocol == 'ftp':
+            return self.__t.pwd()       
+        elif self.__typeProtocol == 'sftp':
+            return self.__t.getcwd()
         
+    def cwd(self, remoteDirectory = None):
+        if self.__typeProtocol == 'ftp':
+            self.__t.cwd(remoteDirectory)      
+        elif self.__typeProtocol == 'sftp':
+            self.__t.chdir(remoteDirectory) 
+    
+    def setDefaultDirectory(self):
+        if self.__typeProtocol == 'ftp':
+            self.__t.cwd(self.__defaultDirectory)    
+        elif self.__typeProtocol == 'sftp':
+            self.__t.chdir(None)
+                
+    def remotePathJoin (self, *paths):        
+        """Returns separate paths  to string"""        
         if len(paths)== 0:
             return None
         if len(paths)== 1:
             return paths[0]
         else:
-            path = paths[0]
-        
+            path = paths[0]        
         for i in paths[1:]:
-            path += self.__SEP + i  
-        
+            path += self.__SEP + i          
         return path  
        
                          
 
-t = PyFileTransfer('sftp', 'test.rebex.net', 'unix', 22)
+t = PyFileTransfer('sftp', 'test.rebex.net', 'unix')
 t.connection("demo", "password")
-t.get("WinFormClient.png", '/pub/example')
+#t.get("WinFormClient.png", '/pub/example')
+print t.pwd()
+t.cwd('pub/example')
+print t.pwd()
+t.setDefaultDirectory()
+print t.pwd()
 t.disconnect()
